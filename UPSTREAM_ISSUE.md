@@ -1,7 +1,6 @@
 # Upstream report
 
-Filed against [Jguer/yay](https://github.com/Jguer/yay) — link added here
-once the issue is created.
+Filed: https://github.com/Jguer/yay/issues/2878
 
 ## Title
 

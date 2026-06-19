@@ -39,8 +39,8 @@ once a hook *callback* actually fires. The concat against `nil` throws:
 init.lua:15: cannot perform concat operation between nil and string
 ```
 
-Filed upstream: see [`UPSTREAM_ISSUE.md`](./UPSTREAM_ISSUE.md) for the
-report.
+Filed upstream: https://github.com/Jguer/yay/issues/2878 (full report in
+[`UPSTREAM_ISSUE.md`](./UPSTREAM_ISSUE.md)).
 
 ### The fix
 
