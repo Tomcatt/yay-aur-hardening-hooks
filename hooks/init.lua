@@ -1,9 +1,17 @@
 -- yay UpgradeSelect hooks for AUR supply-chain review.
 -- See https://github.com/Jguer/yay/blob/v13.0.0/doc/examples/recently_modified.lua
--- and .../maintainer_change.lua (upstream examples, maintainer_change.lua
--- patched here for a load-order bug: cache_file referenced yay.opt.build_dir
--- at top-level script load, before yay populates it; moved into the callback
--- and forward-declared as a shared upvalue for load_cache/save_cache).
+-- and .../maintainer_change.lua (upstream examples).
+--
+-- maintainer_change.lua patched here: the upstream example reads
+-- yay.opt.build_dir to locate its cache file, but yay.opt is a write-only
+-- table (pkg/settings/lua/lua.go: created empty, only ever read FROM by
+-- yay to apply settings INTO config — never written TO by yay). It's only
+-- non-nil if the script itself sets it, same as doc/init.lua's template
+-- does. Since this script doesn't set it, yay.opt.build_dir is nil at
+-- every point in the script's lifetime, not just at top-level load.
+-- Fixed by deriving the cache path independently via XDG_CACHE_HOME/HOME,
+-- matching yay's own default build_dir convention without depending on
+-- the (unset) yay.opt table.
 
 -- Hook 1: auto-exclude AUR packages whose PKGBUILD changed in the last 3 days.
 yay.create_autocmd("UpgradeSelect", {
@@ -24,7 +32,8 @@ yay.create_autocmd("UpgradeSelect", {
 })
 
 -- Hook 2: warn (does not exclude) when an AUR package's maintainer changes.
-local cache_file
+local cache_dir = (os.getenv("XDG_CACHE_HOME") or (os.getenv("HOME") .. "/.cache")) .. "/yay"
+local cache_file = cache_dir .. "/maintainer_cache"
 
 local function load_cache()
   local cache = {}
@@ -41,6 +50,7 @@ local function load_cache()
 end
 
 local function save_cache(cache)
+  os.execute('mkdir -p "' .. cache_dir .. '"')
   local f = assert(io.open(cache_file, "w"))
   for name, maintainer in pairs(cache) do
     f:write(name .. "=" .. maintainer .. "\n")
@@ -51,7 +61,6 @@ end
 yay.create_autocmd("UpgradeSelect", {
   desc = "warn on AUR maintainer changes",
   callback = function(event)
-    cache_file = yay.opt.build_dir .. "/maintainer_cache"
     yay.log.info("checking for AUR maintainer changes")
     local cache = load_cache()
     local dirty = false

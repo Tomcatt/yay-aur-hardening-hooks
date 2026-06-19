@@ -1,24 +1,29 @@
 -- Warn when an AUR package's maintainer changes between upgrades.
 --
 -- Patched from upstream doc/examples/maintainer_change.lua (yay 13.0.0):
--- the original read `yay.opt.build_dir` at top-level script load time,
--- before yay populates it, causing a crash on every invocation. Fixed by
--- forward-declaring cache_file and assigning it inside the callback.
--- See README.md in this repo for details.
+-- the original read `yay.opt.build_dir` to locate its cache file, but
+-- yay.opt is a write-only table (pkg/settings/lua/lua.go: created empty,
+-- only ever read FROM by yay to apply settings INTO config — never
+-- written TO by yay). It's nil unless the script sets it itself, so the
+-- original crashes on every real `-Syu`, not just at top-level load.
+-- Fixed by deriving the cache path independently via XDG_CACHE_HOME/HOME,
+-- matching yay's own default build_dir convention without depending on
+-- the (always-empty) yay.opt table. See README.md in this repo for details.
 --
--- The known maintainer for each package is stored in a plain text cache file
--- inside the yay cache directory (build_dir). On the first upgrade for a
--- package the current maintainer is recorded without any warning. On
--- subsequent upgrades:
+-- The known maintainer for each package is stored in a plain text cache
+-- file under $XDG_CACHE_HOME/yay (default ~/.cache/yay). On the first
+-- upgrade for a package the current maintainer is recorded without any
+-- warning. On subsequent upgrades:
 --   * same maintainer  → debug "match correct"
 --   * different maintainer → error "new maintainer, double check build files"
 --
 -- The cache is updated whenever a new or changed maintainer is seen.
 --
--- Cache file location: <build_dir>/maintainer_cache
+-- Cache file location: $XDG_CACHE_HOME/yay/maintainer_cache
 -- Format: one "pkgname=maintainer" entry per line.
 
-local cache_file
+local cache_dir = (os.getenv("XDG_CACHE_HOME") or (os.getenv("HOME") .. "/.cache")) .. "/yay"
+local cache_file = cache_dir .. "/maintainer_cache"
 
 local function load_cache()
   local cache = {}
@@ -35,6 +40,7 @@ local function load_cache()
 end
 
 local function save_cache(cache)
+  os.execute('mkdir -p "' .. cache_dir .. '"')
   local f = assert(io.open(cache_file, "w"))
   for name, maintainer in pairs(cache) do
     f:write(name .. "=" .. maintainer .. "\n")
@@ -45,7 +51,6 @@ end
 yay.create_autocmd("UpgradeSelect", {
   desc = "warn on AUR maintainer changes",
   callback = function(event)
-    cache_file = yay.opt.build_dir .. "/maintainer_cache"
     yay.log.info("checking for AUR maintainer changes")
     local cache = load_cache()
     local dirty = false

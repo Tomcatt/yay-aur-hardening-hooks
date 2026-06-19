@@ -3,7 +3,7 @@
 -- their exclude lists are unioned (deduped), skip_menu is OR'd.
 -- (Matches pkg/settings/lua/autocmd.go RunUpgradeSelect in yay 13.0.0.)
 yay = {
-  opt = { build_dir = "/tmp/yay-test/mockcache" },
+  opt = {},  -- real yay.opt is an empty table unless the script sets it itself
   log = {
     debug = function(...) print("[debug]", ...) end,
     info = function(...) print("[info]", ...) end,
@@ -58,6 +58,7 @@ local r3 = run_upgrade_select({ data = { upgrades = {
 print("exclude:", table.concat(r3.exclude, ","))
 
 print("=== cache file contents ===")
-local f = io.open("/tmp/yay-test/mockcache/maintainer_cache")
+local cache_path = os.getenv("XDG_CACHE_HOME") .. "/yay/maintainer_cache"
+local f = io.open(cache_path)
 print(f:read("*a"))
 f:close()
